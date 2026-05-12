@@ -1,15 +1,42 @@
 import React from "react";
-import { NavLink } from "react-router";
+import { NavLink, useNavigate, useLocation } from "react-router"; // or "react-router-dom"
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+// Import both Login and Logout icons
+import { faArrowRightToBracket, faArrowRightFromBracket } from '@fortawesome/free-solid-svg-icons';
 
 function Navbar() {
+  const location = useLocation(); // Forces re-render on route change
+  const username = localStorage.getItem("name");
+  const navigate=useNavigate();
+
+  function logout(){
+    console.log("licked"+username);
+    localStorage.removeItem("name");
+    navigate("/")
+  }
+
   return (
-    <div className="flex flex-row gap-30 p-2 bg-[var(--color-background)] items-center h-[80px] ">
+    <div className="flex flex-row gap-30 p-2 bg-[var(--color-background)] items-center h-[80px]">
       <h1 className="text-[var(--color-logo)] font-bold text-2xl">LEET DECODE</h1>
       <ul className="flex flex-row justify-between w-8/12 text-xl">
-          <li><NavItem to={"Home"} /></li>
-          <li><NavItem to={"Friends"} /></li>
-          <li><NavItem to={"Sheets"} /></li>
-          <li><NavItem to={"Battle"} /></li>
+        <li><NavItem to={"Home"} /></li>
+        <li><NavItem to={"Friends"} /></li>
+        <li><NavItem to={"Sheets"} /></li>
+        <li><NavItem to={"Battle"} /></li>
+        <li className="flex items-center cursor-pointer">
+          {username == null ? (
+            <div className="flex items-center gap-2 text-neutral-500 hover:text-white">
+              <span>Login</span>
+              <FontAwesomeIcon icon={faArrowRightToBracket} />
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-[var(--color-logo)]
+            " onClick={() => logout()}>
+              <span>Logout</span>
+              <FontAwesomeIcon icon={faArrowRightFromBracket} />
+            </div>
+          )}
+        </li>
       </ul>
     </div>
   );

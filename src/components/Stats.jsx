@@ -2,10 +2,10 @@ import React from 'react'
 import { CircularProgressbar, buildStyles } from 'react-circular-progressbar'
 import 'react-circular-progressbar/dist/styles.css'; // Don't forget this for base styles!
 
-function Stats({ userStat }) {
+function Stats({ userStat, className }) {
   return (
     // Added 'flex flex-col items-center' to ensure the header and chart are aligned
-    <div className='w-full md:w-[40%] rounded-md m-2 bg-[var(--component-surface)] text-white p-4 flex flex-col items-center'>
+    <div className={`w-full md:w-[40%] rounded-md m-2 bg-[var(--component-surface)] text-white p-4 flex flex-col items-center ${className || ''}`}>
         <h3 className='font-[var(--font-body)]  font-bold
         text-2xl
         w-full text-left self-start mb-2'>Solved Problems</h3>
