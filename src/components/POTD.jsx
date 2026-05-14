@@ -1,20 +1,12 @@
 import React from 'react'
 
-function POTD() {
-
-    const potd ={
-        issolved:false,
-        questioncontent:"Lexicographical Matrix Path Minimization",
-        tags:["DP","Heap"],
-        solvedby:"4.2k"
-    }
+function POTD({ potd = { issolved: false, questioncontent: "Loading...", tags: [], solvedby: "" } }) {
   return (
-    <div className='text-white md:w-[40%] w-full p-2 bg-[var(--component-surface)] flex gap-10  flex-col w-3/8 m-2 '>
-
+    <div className='text-white md:w-[40%] w-full p-4 bg-[var(--component-surface)] flex gap-6 flex-col m-2 rounded-md'>
         <div className='flex flex-row justify-between items-center'>
             <h2 className='font-bold text-xl'>PROBLEM OF THE DAY</h2>
             <div className={`${!potd.issolved?"bg-red-500":
-                "bg-green-600"} p-2 rounded-xl`}>
+                "bg-green-600"} p-2 rounded-xl text-sm font-bold`}>
                 {
                     potd.issolved ? "SOLVED" : "PENDING"
                 }
@@ -25,22 +17,23 @@ function POTD() {
             {potd.questioncontent}
         </div>
 
-        <div className='flex  flex-wrap flex-row justify-around'>
+        <div className='flex flex-wrap flex-row gap-2'>
             {
-                potd.tags.map( (tag,index) => {
-                    return <div key={index}>
+                potd.tags && Array.isArray(potd.tags) && potd.tags.map( (tag,index) => {
+                    return <div key={index} className="bg-[#2a2a2a] px-3 py-1 rounded-full text-xs text-gray-300 border border-gray-700">
                         {tag}
                         </div>
                 } )
             }
         </div>
 
-        <button className={`bg-[var(--color-medium)]  
-        p-2 w-11/12 m-auto ${potd.issolved? "cursor-not-allowed opacity-50 bg-green-600" : "cursor-pointer"}
-        rounded-2xl text-black`}>{potd.issolved?"SOLVED" :"SOLVE NOW"}</button>
-        <div className='flex flex-row justify-between text-gray-500'>
-            <p>Ends in </p>
-            <p>{potd.solvedby}</p>
+        <button className={`bg-[var(--color-logo)]  
+        p-2 w-full mt-4 ${potd.issolved? "cursor-not-allowed opacity-50 bg-green-600" : "cursor-pointer hover:scale-[1.02] transition"}
+        rounded-xl text-white font-bold`}>{potd.issolved?"SOLVED" :"SOLVE NOW"}</button>
+        
+        <div className='flex flex-row justify-between text-gray-500 text-sm mt-2'>
+            <p>Difficulty: <span className="text-gray-300">Medium</span></p>
+            <p>Solved by: <span className="text-gray-300">{potd.solvedby}</span></p>
         </div>
 
     </div>

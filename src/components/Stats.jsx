@@ -17,10 +17,12 @@ function Stats({ userStat, className }) {
           <div className="w-full h-full absolute top-0 left-0">
             <CircularProgressbar
               value={userStat.easy}
+              maxValue={800}
               strokeWidth={6}
               styles={buildStyles({
                 pathColor: "var(--color-easy)",
                 trailColor: "#2a2a2a",
+                strokeLinecap: 'round'
               })}
             />
           </div>
@@ -29,10 +31,12 @@ function Stats({ userStat, className }) {
           <div className="w-[75%] h-[75%] absolute top-[12.5%] left-[12.5%]">
             <CircularProgressbar
               value={userStat.medium}
-              strokeWidth={8} // Slightly thicker looks better on inner rings
+              maxValue={1400}
+              strokeWidth={8} 
               styles={buildStyles({
                 pathColor: "var(--color-medium)",
                 trailColor: "#2a2a2a",
+                strokeLinecap: 'round'
               })}
             />
           </div>
@@ -41,10 +45,12 @@ function Stats({ userStat, className }) {
           <div className="w-[50%] h-[50%] absolute top-[25%] left-[25%]">
             <CircularProgressbar
               value={userStat.hard}
+              maxValue={700}
               strokeWidth={10}
               styles={buildStyles({
                 pathColor: "var(--color-hard)",
                 trailColor: "#2a2a2a",
+                strokeLinecap: 'round'
               })}
             />
           </div>
