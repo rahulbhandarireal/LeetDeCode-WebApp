@@ -1,94 +1,13 @@
-import React, { useState, useEffect } from 'react'
+import React from 'react'
+import { useLeetCodeData } from '../hooks/useLeetCodeData'
 import POTD from '../components/POTD'
 import RatingChart from '../components/RatingChart'
 import Stats from '../components/Stats'
 import RecentlySolved from '../components/RecentlySolved'
 
 function Home() {
-  const [userData, setUserData] = useState(null);
-  const [potdData, setPotdData] = useState({
-    issolved: false,
-    questioncontent: "Lexicographical Matrix Path Minimization", // Default/Fallback
-    tags: ["DP", "Heap"],
-    solvedby: "4.2k"
-  });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
   const username = localStorage.getItem("name") || "Guest";
-  const CACHE_TIME = 5 * 60 * 1000; // 5 minutes
-  const today = new Date().toISOString().split('T')[0];
-
-  useEffect(() => {
-    if (username === "Guest") {
-      setLoading(false);
-      return;
-    }
-
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        
-        // 1. Fetch User Stats (with caching)
-        const statsCacheKey = `userStats_${username}`;
-        const cachedStats = localStorage.getItem(statsCacheKey);
-        let statsData = null;
-
-        if (cachedStats) {
-          const { data, timestamp } = JSON.parse(cachedStats);
-          if (Date.now() - timestamp < CACHE_TIME) {
-            statsData = data;
-          }
-        }
-
-        if (!statsData) {
-          const statsRes = await fetch(`http://localhost:8081/api/leetcode/stats/${username}`);
-          const statsResult = await statsRes.json();
-          if (statsResult.success) {
-            statsData = statsResult.data;
-            localStorage.setItem(statsCacheKey, JSON.stringify({ data: statsData, timestamp: Date.now() }));
-          } else {
-            throw new Error(statsResult.message || "Failed to fetch user data");
-          }
-        }
-        setUserData(statsData);
-
-
-        // 3. Fetch POTD Status (with specific caching)
-        const potdCacheKey = `potdSolved_${username}_${today}`;
-        const isPotdSolvedCached = localStorage.getItem(potdCacheKey) === "true";
-        
-        let potdSolved = isPotdSolvedCached;
-
-        if (!potdSolved) {
-          const potdRes = await fetch(`http://localhost:8081/api/leetcode/ispotdsolved/${username}`);
-          const potdResult = await potdRes.json();
-          if (potdResult.success) {
-            // Check if the response is "solved"
-            potdSolved = potdResult.data && typeof potdResult.data === 'string' && potdResult.data.toLowerCase() === "solved";
-            if (potdSolved) {
-              localStorage.setItem(potdCacheKey, "true");
-            }
-          } else {
-            console.error("Failed to fetch POTD status:", potdResult.message);
-          }
-        }
-
-        setPotdData(prev => ({
-          ...prev,
-          issolved: potdSolved
-        }));
-
-      } catch (err) {
-        setError(err.message || "Could not connect to backend API");
-        console.error("Fetch error:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [username, today]);
+  const { userData, potdData, loading, error, clearCache } = useLeetCodeData(username);
 
   const getRank = (rating) => {
     if (!rating) return "Newbie";
@@ -109,12 +28,8 @@ function Home() {
     return (
       <div className="bg-[var(--color-background)] min-h-screen flex flex-col items-center justify-center text-white p-4">
         <div className="text-red-500 text-2xl font-bold mb-4">Error: {error}</div>
-        <button 
-          onClick={() => {
-            localStorage.removeItem(`userStats_${username}`);
-            localStorage.removeItem(`potdSolved_${username}_${today}`);
-            window.location.reload();
-          }}
+        <button
+          onClick={clearCache}
           className="bg-[var(--color-logo)] px-6 py-2 rounded-lg font-bold hover:scale-105 transition"
         >
           Clear Cache & Retry
@@ -141,7 +56,7 @@ function Home() {
 
   return (
     <div className='bg-[var(--color-background)] min-h-screen p-4 md:p-8'>
-      
+
       {/* User Header Profile Section */}
       <div className="flex flex-col md:flex-row justify-between items-center bg-[var(--component-surface)] p-6 rounded-md mb-8 w-full text-white shadow-lg border border-gray-800/50">
         <div className="mb-4 md:mb-0">

@@ -1,11 +1,23 @@
 import React, { useState, useEffect } from 'react'
 
 function RecentlySolved() {
-  const [recentactivity, setRecentActivity] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
   const username = localStorage.getItem("name") || "Guest";
+  const CACHE_KEY = `recentSolved_${username}`;
+  const CACHE_DURATION = 60 * 60 * 1000; // 1 hour
+
+  const [recentactivity, setRecentActivity] = useState(() => {
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (cached) {
+      try {
+        const { data, timestamp } = JSON.parse(cached);
+        if (Date.now() - timestamp < CACHE_DURATION) return data;
+      } catch (e) { return []; }
+    }
+    return [];
+  });
+  
+  const [loading, setLoading] = useState(!recentactivity.length && username !== "Guest");
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     if (username === "Guest") {
@@ -15,14 +27,41 @@ function RecentlySolved() {
 
     const fetchRecentProblems = async () => {
       try {
-        setLoading(true);
+        if (!recentactivity.length) {
+          setLoading(true);
+        }
+
+        // 1. Check Cache (re-check in case it was updated by another component)
+        const cached = localStorage.getItem(CACHE_KEY);
+        if (cached) {
+          try {
+            const { data, timestamp } = JSON.parse(cached);
+            if (Date.now() - timestamp < CACHE_DURATION) {
+              setRecentActivity(data);
+              setLoading(false);
+              return;
+            }
+          } catch (e) { }
+        }
+
         const res = await fetch(`http://localhost:8081/api/leetcode/recentsolvedproblem/${username}`);
-        const result = await res.json();
-        
-        if (result.success && Array.isArray(result.data)) {
-          setRecentActivity(result.data);
+        if (res && typeof res.json === 'function') {
+          const result = await res.json();
+          if (result && result.success && Array.isArray(result.data)) {
+            // 2. Limit to at most 10 items
+            const limitedData = result.data.slice(0, 10);
+            setRecentActivity(limitedData);
+            
+            // 3. Update Cache
+            localStorage.setItem(CACHE_KEY, JSON.stringify({
+              data: limitedData,
+              timestamp: Date.now()
+            }));
+          } else {
+            setError(result?.message || "Failed to fetch activity");
+          }
         } else {
-          setError(result.message || "Failed to fetch activity");
+          throw new Error("Invalid response from server");
         }
       } catch (err) {
         setError("Connection error");
@@ -32,7 +71,7 @@ function RecentlySolved() {
     };
 
     fetchRecentProblems();
-  }, [username]);
+  }, [username, CACHE_KEY, CACHE_DURATION]);
 
   return (
     <div className='text-white w-4/6 rounded-md bg-[var(--component-surface)] p-4 min-h-[300px]'>
@@ -64,21 +103,25 @@ function RecentlySolved() {
   );
 }
 
-function RecentCard({ques}){
-    if (!ques) return null;
-    return (
-        <div className='flex p-4 justify-between flex-row border-collapse border-t border-b border-white/10 hover:bg-white/5 transition'>
-           <div className="font-medium">{ques.title || "Unknown Problem"}</div>
-           <div className='flex w-4/12 flex-row justify-between items-center'>
-             <span className={`${
-               ques.difficulty === 'Easy' ? 'text-green-400' : 
-               ques.difficulty === 'Medium' ? 'text-yellow-400' : 
-               ques.difficulty === 'Hard' ? 'text-red-400' : 'text-gray-400'
-             } text-sm`}>{ques.difficulty || ""}</span> 
-             <span className='text-gray-500 text-[10px]'>{ques.time || ""}</span> 
-            </div>
-        </div>
-    )
+function RecentCard({ ques }) {
+  if (!ques) return null;
+  const difficulty = ques.difficulty?.toLowerCase();
+  let colorClass = 'text-gray-400';
+  if (difficulty === 'easy') colorClass = 'text-[var(--color-easy)]';
+  else if (difficulty === 'medium') colorClass = 'text-[var(--color-medium)]';
+  else if (difficulty === 'hard') colorClass = 'text-[var(--color-hard)]';
+
+  return (
+    <div className='flex p-4 justify-between flex-row border-collapse border-t border-b border-white/10 hover:bg-white/5 transition'>
+      <div className="font-medium">{ques.title || "Unknown Problem"}</div>
+      <div className='flex w-4/12 flex-row justify-between items-center'>
+        <span className={`${colorClass} text-sm font-bold`}>
+          {ques.difficulty || ""}
+        </span>
+        <span className='text-gray-500 text-[10px]'>{ques.time || ""}</span>
+      </div>
+    </div>
+  );
 }
 
 export default RecentlySolved

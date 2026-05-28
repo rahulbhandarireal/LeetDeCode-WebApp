@@ -11,31 +11,59 @@ function Friends() {
   const [isAdding, setIsAdding] = useState(false);
 
   const currentUser = localStorage.getItem("name") || "Guest";
+  const today = new Date().toISOString().split('T')[0];
+  const FRIENDS_CACHE_KEY = `friendsList_${currentUser}_${today}`;
 
-  const fetchFriends = async () => {
+  const fetchFriends = async (forceRefresh = false) => {
     if (currentUser === "Guest") {
       setLoading(false);
       return;
     }
 
+    // 1. Check Cache
+    if (!forceRefresh) {
+      const cachedData = localStorage.getItem(FRIENDS_CACHE_KEY);
+      if (cachedData) {
+        try {
+          setFriends(JSON.parse(cachedData));
+          setLoading(false);
+          return;
+        } catch (e) {
+          console.error("Failed to parse friends cache", e);
+        }
+      }
+    }
+
     try {
       setLoading(true);
       const response = await fetch(`http://localhost:8081/relation/findallknown/${currentUser}`);
-      const result = await response.json();
-
-      if (result.success && Array.isArray(result.data)) {
-        const mappedFriends = result.data.map((user, index) => ({
-          id: user.id || index,
-          name: user.name || user.username || "LeetCoder",
-          username: user.username || "unknown",
-          userStat: {
-            easy: user.easySolved || 0,
-            medium: user.mediumSolved || 0,
-            hard: user.hardSolved || 0,
-            total: user.totalSolved || 0
-          }
-        }));
-        setFriends(mappedFriends);
+      if (response && typeof response.json === 'function') {
+        const result = await response.json();
+        if (result && result.success && Array.isArray(result.data)) {
+          const mappedFriends = result.data.map((user, index) => ({
+            id: user.id || index,
+            name: user.name || user.username || "LeetCoder",
+            username: user.username || "unknown",
+            userStat: {
+              easy: user.easySolved || 0,
+              medium: user.mediumSolved || 0,
+              hard: user.hardSolved || 0,
+              total: user.totalSolved || 0
+            }
+          }));
+          
+          setFriends(mappedFriends);
+          
+          // 2. Update Cache
+          localStorage.setItem(FRIENDS_CACHE_KEY, JSON.stringify(mappedFriends));
+          
+          // 3. Optional: Cleanup old friends caches
+          Object.keys(localStorage).forEach(key => {
+            if (key.startsWith(`friendsList_${currentUser}_`) && key !== FRIENDS_CACHE_KEY) {
+              localStorage.removeItem(key);
+            }
+          });
+        }
       }
     } catch (err) {
       console.error("Fetch error:", err);
@@ -70,8 +98,8 @@ function Friends() {
       if (result.success || response.ok) {
         setAddStatus({ type: 'success', message: `Friend request sent to ${searchUsername}!` });
         setSearchUsername("");
-        // Refresh friends list without full page reload
-        fetchFriends(); 
+        // Refresh friends list without full page reload, bypassing cache
+        fetchFriends(true); 
       } else {
         setAddStatus({ type: 'error', message: result.message || "Failed to add friend." });
       }
@@ -145,7 +173,11 @@ function Friends() {
             </div>
           ) : (
             friends.map((friend) => (
-              <div key={friend.id} className="w-full flex flex-col items-center bg-[var(--component-surface)] rounded-xl overflow-hidden border border-gray-800/50 hover:border-[var(--color-logo)]/30 transition-all shadow-xl group">
+              <div 
+                key={friend.id} 
+                onClick={() => window.open(`https://leetcode.com/u/${friend.username}/`, "_blank")}
+                className="w-full flex flex-col items-center bg-[var(--component-surface)] rounded-xl overflow-hidden border border-gray-800/50 hover:border-[var(--color-logo)]/30 transition-all shadow-xl group cursor-pointer"
+              >
                 <div className="text-white flex justify-between items-center w-full px-6 py-4 bg-[#1a1a1a] border-b border-gray-800">
                   <div>
                     <span className="text-xl font-bold block group-hover:text-[var(--color-logo)] transition-colors">{friend.name}</span>

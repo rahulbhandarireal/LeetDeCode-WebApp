@@ -10,9 +10,9 @@ function Navbar() {
   const navigate=useNavigate();
 
   function logout(){
-    console.log("licked"+username);
-    localStorage.removeItem("name");
-    navigate("/")
+    console.log("logout triggered for " + username);
+    localStorage.clear();
+    navigate("/");
   }
 
   return (
