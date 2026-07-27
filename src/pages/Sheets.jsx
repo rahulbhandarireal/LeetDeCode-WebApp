@@ -3,13 +3,18 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faFire, faBookOpen } from '@fortawesome/free-solid-svg-icons';
 import SheetModal from '../components/SheetModal';
 
-
-
-
-
-
 function SheetCard({ sheet, onClick }) {
-  const percentage = Math.round((sheet.sheetId / sheet.total) * 100);
+  const username = localStorage.getItem("name") || "Guest";
+  const cacheKey = `solved_problems_${username}_${sheet.sheetId}`;
+  let solved = 0;
+  if (username !== "Guest") {
+    try {
+      const stored = localStorage.getItem(cacheKey);
+      const parsed = stored ? JSON.parse(stored) : {};
+      solved = Object.values(parsed).filter(Boolean).length;
+    } catch (e) {}
+  }
+  const percentage = Math.round((solved / sheet.total) * 100);
 
   return (
     <div
@@ -27,7 +32,7 @@ function SheetCard({ sheet, onClick }) {
       </div>
 
       <div className="text-neutral-400 text-sm">
-        {sheet.sheetId} / {sheet.total} problems solved
+        {solved}/{sheet.total} problems solved
       </div>
 
       {/* Difficulties */}

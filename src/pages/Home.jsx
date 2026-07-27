@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { useLeetCodeData } from '../hooks/useLeetCodeData'
 import POTD from '../components/POTD'
 import RatingChart from '../components/RatingChart'
@@ -8,6 +8,23 @@ import RecentlySolved from '../components/RecentlySolved'
 function Home() {
   const username = localStorage.getItem("name") || "Guest";
   const { userData, potdData, loading, error, clearCache } = useLeetCodeData(username);
+  const [userPoints, setUserPoints] = useState(null);
+
+  useEffect(() => {
+    if (username && username !== "Guest") {
+      fetch(`http://localhost:8082/user/getuserpoints?playerId=${encodeURIComponent(username)}`)
+        .then(res => res.json())
+        .then(data => {
+          console.log(data);
+          const pts = data?.data?.decodePoints ?? 0;
+          setUserPoints(pts);
+        })
+        .catch(err => {
+          console.error("Failed to fetch user points:", err);
+          setUserPoints(0);
+        });
+    }
+  }, [username]);
 
   const getRank = (rating) => {
     if (!rating) return "Newbie";
@@ -50,7 +67,7 @@ function Home() {
     total: 0
   };
 
-  const points = userData?.contributionPoints || 0;
+  const points = userPoints !== null ? userPoints : 0;
   const rating = userData?.rating || 0;
   const rank = getRank(rating);
 
@@ -65,7 +82,7 @@ function Home() {
         </div>
         <div className="flex gap-8 text-center bg-[#1a1a1a] py-3 px-8 rounded-xl border border-gray-700/30">
           <div>
-            <p className="text-gray-400 text-xs uppercase font-bold tracking-wider mb-1">Points</p>
+            <p className="text-gray-400 text-xs uppercase font-bold tracking-wider mb-1">DeCode Points</p>
             <p className="text-2xl font-extrabold text-orange-400">{points}</p>
           </div>
           <div className="w-[1px] bg-gray-700"></div> {/* Divider */}

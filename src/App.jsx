@@ -1,5 +1,4 @@
-
-import { Routes,Route } from 'react-router'
+import { Routes, Route, useLocation } from 'react-router'
 import './App.css'
 import Navbar from './components/Navbar'
 import Home from './pages/Home'
@@ -10,10 +9,12 @@ import Sheets from './pages/Sheets'
 import IDE from './pages/IDE'
 
 function App() {
+  const location = useLocation();
+  const isIdePage = location.pathname.toLowerCase() === '/ide';
 
   return (
     <div>
-      <Navbar />
+      {!isIdePage && <Navbar />}
      <Routes>
       <Route path='/' element={<Login />} />
       <Route path="/Home" element={<Home />} />

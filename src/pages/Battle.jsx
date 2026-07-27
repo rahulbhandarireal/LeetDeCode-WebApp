@@ -1,46 +1,197 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faRightToBracket, faTrophy, faXmark } from '@fortawesome/free-solid-svg-icons';
 
 function Battle() {
   const [roomId, setRoomId] = useState('');
   const [activeRoom, setActiveRoom] = useState(null);
-
-  // Mock battle history data
-  const battleHistory = [
-    { id: 1, opponent: "algo_master", date: "2026-05-10", result: "Win", score: "+15", duration: "12m" },
-    { id: 2, opponent: "dp_god", date: "2026-05-09", result: "Loss", score: "-8", duration: "45m" },
-    { id: 3, opponent: "graph_ninja", date: "2026-05-08", result: "Win", score: "+20", duration: "18m" },
-    { id: 4, opponent: "tree_hugger", date: "2026-05-05", result: "Draw", score: "+0", duration: "30m" },
+  
+  const topics = [
+    "Arrays", "Strings", "Hash Table", "Linked List", "Math", 
+    "Two Pointers", "Binary Search", "Recursion", "Backtracking", 
+    "Sliding Window", "Dynamic Programming", "Trees", "Graphs", 
+    "Stack", "Queue", "Heap / Priority Queue", "Trie", "Sorting", "Greedy"
   ];
+  const [selectedTopic, setSelectedTopic] = useState(topics[0]);
+  const [questionLevel, setQuestionLevel] = useState('Easy');
 
-  const handleCreateRoom = () => {
-    // Generate a mock random 6-character room ID
-    const newRoom = Math.random().toString(36).substring(2, 8).toUpperCase();
-    setActiveRoom(newRoom);
-    alert(`Room Created! Your Room ID is: ${newRoom}`);
+  const [isWaiting, setIsWaiting] = useState(false);
+  const [waitingRoomId, setWaitingRoomId] = useState('');
+  const [problemId, setProblemId] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const navigate = useNavigate();
+
+  const currentUsername = localStorage.getItem("name") || "Guest";
+  const [battleHistory, setBattleHistory] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyError, setHistoryError] = useState(null);
+
+  useEffect(() => {
+    if (currentUsername && currentUsername !== "Guest") {
+      setHistoryLoading(true);
+      fetch(`http://localhost:8082/battle/history?hostUsername=${encodeURIComponent(currentUsername)}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data?.status && Array.isArray(data?.data)) {
+            setBattleHistory(data.data);
+          } else {
+            setBattleHistory([]);
+          }
+        })
+        .catch(err => {
+          console.error("Failed to fetch battle history:", err);
+          setHistoryError("Could not load battle history.");
+        })
+        .finally(() => setHistoryLoading(false));
+    } else {
+      setHistoryLoading(false);
+    }
+  }, [currentUsername]);
+
+  const handleCreateRoom = async () => {
+    const username = localStorage.getItem("name") || "Guest";
+    const playerId = localStorage.getItem("userId") || username;
+
+    try {
+      setLoading(true);
+      const response = await fetch('http://localhost:8082/battle/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          hostPlayerId: playerId,
+          hostUsername: username,
+          topic: selectedTopic,
+          level: questionLevel
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create room');
+      }
+
+      const resData = await response.json();
+      
+      if (resData.status && resData.data) {
+        const newRoomId = resData.data.roomCode;
+        const fetchedProblemId = resData.data.problemId;
+
+        if (newRoomId) {
+          setWaitingRoomId(newRoomId);
+          setProblemId(fetchedProblemId);
+          setIsWaiting(true);
+          setActiveRoom(newRoomId);
+        } else {
+          alert("Failed to get room ID from server");
+        }
+      } else {
+        alert("Failed to create room: " + (resData.message || "Unknown error"));
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error creating room. Make sure backend is running.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleJoinRoom = (e) => {
+  // Poll for player two joining (hits battle/roomstatus/{roomCode} every 5 seconds)
+  React.useEffect(() => {
+    let interval;
+    if (isWaiting && waitingRoomId) {
+      interval = setInterval(async () => {
+        try {
+          const response = await fetch(`http://localhost:8082/battle/roomstatus/${waitingRoomId}`);
+          if (response.ok) {
+            const resData = await response.json();
+            const roomData = resData.data; // Support both {data: {...}} and {...} structures
+            
+            const players = roomData.players || [];
+            const isJoined = 
+              players.length > 1 ||
+              roomData.status === "IN_PROGRESS";
+
+            // Check if player two joined
+            if (isJoined) {
+              const currentUser = localStorage.getItem("name") || "Guest";
+              let opponentUsername = "Opponent";
+              if (players.length > 1) {
+                const opponent = players.find(p => p.username !== currentUser);
+                if (opponent) opponentUsername = opponent.username;
+              } 
+
+              const resolvedProblemId =problemId;
+              setIsWaiting(false);
+              clearInterval(interval);
+              alert(`Player joined! Starting battle match...`);
+              navigate(`/ide?roomId=${waitingRoomId}&problemId=${resolvedProblemId}&opponent=${opponentUsername}`);
+            }
+          }
+        } catch (err) {
+          console.error("Error polling room status", err);
+        }
+      }, 5000); // Poll every 5 seconds
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isWaiting, waitingRoomId, problemId, navigate]);
+
+  const handleJoinRoom = async (e) => {
     e.preventDefault();
     if (roomId.trim() === '') {
       alert("Please enter a valid Room ID.");
       return;
     }
-    setActiveRoom(roomId.toUpperCase());
-    alert(`Successfully joined Room: ${roomId.toUpperCase()}`);
+    const joinedRoom = roomId.toUpperCase().trim();
+    setActiveRoom(joinedRoom);
+    
+    let pId = '';
+    let opponentUsername = '';
+    const currentUser = localStorage.getItem("name") || "Guest";
+
+    try {
+      const statusRes = await fetch(`http://localhost:8082/battle/roomstatus/${joinedRoom}`);
+      if (statusRes.ok) {
+        const sData = await statusRes.json();
+        const rObj = sData.data || sData;
+        pId = rObj.problemId || rObj.problem?.id || '';
+
+        const players = rObj.players || rObj.playersList || [];
+        if (players.length > 0) {
+          const opponent = players.find(p => (p.username && p.username !== currentUser) || (p.name && p.name !== currentUser));
+          if (opponent) {
+            opponentUsername = opponent.username || opponent.name || '';
+          }
+        }
+        if (!opponentUsername && rObj.hostUsername) {
+          opponentUsername = rObj.hostUsername;
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching room status on join:", err);
+    }
+
+    alert(`Successfully joined Room: ${joinedRoom}`);
     setRoomId('');
+    navigate(`/ide?roomId=${joinedRoom}&problemId=${pId}${opponentUsername ? `&opponent=${opponentUsername}` : ''}`);
   };
 
   const leaveRoom = () => {
     setActiveRoom(null);
+    setIsWaiting(false);
+    setWaitingRoomId('');
   };
 
   return (
     <div className='bg-[var(--color-background)] min-h-screen p-4 md:p-8 text-white'>
       <div className="mb-8 border-b border-white/20 pb-4 flex justify-between items-center">
         <h1 className='text-3xl font-bold'>Battle Arena</h1>
-        {activeRoom && (
+        {activeRoom && !isWaiting && (
           <div className="bg-green-600/20 text-green-400 px-4 py-2 rounded-full flex items-center gap-3 font-bold border border-green-600/50">
             <span className="animate-pulse h-3 w-3 bg-green-500 rounded-full inline-block"></span>
             In Room: {activeRoom}
@@ -54,18 +205,68 @@ function Battle() {
       {/* Lobby Section */}
       <div className="flex flex-col md:flex-row gap-8 mb-12">
         {/* Create Room Card */}
-        <div className="flex-1 bg-[var(--component-surface)] p-8 rounded-xl shadow-lg border border-white/5 flex flex-col items-center justify-center text-center hover:border-[var(--color-logo)]/50 transition-colors">
-          <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mb-4 text-blue-400 text-2xl">
-            <FontAwesomeIcon icon={faPlus} />
-          </div>
-          <h2 className="text-2xl font-bold mb-2">Create a Room</h2>
-          <p className="text-gray-400 mb-6">Host a battle and invite your friends to compete in real-time.</p>
-          <button 
-            onClick={handleCreateRoom}
-            className="bg-[var(--color-logo)] text-black font-bold py-3 px-8 rounded-lg hover:bg-orange-400 transition shadow-[0_0_15px_rgba(239,153,55,0.4)]"
-          >
-            Create Battle Room
-          </button>
+        <div className="flex-1 bg-[var(--component-surface)] p-8 rounded-xl shadow-lg border border-white/5 flex flex-col items-center justify-center text-center hover:border-[var(--color-logo)]/50 transition-colors relative overflow-hidden">
+          {isWaiting ? (
+            <div className="flex flex-col items-center justify-center h-full w-full py-8">
+              <div className="w-16 h-16 border-4 border-[var(--color-logo)] border-t-transparent rounded-full animate-spin mb-6"></div>
+              <h2 className="text-2xl font-bold mb-2">Waiting for Player 2...</h2>
+              <p className="text-gray-400 mb-4">Share this Room ID with your opponent:</p>
+              <div className="bg-[#2a2a2a] text-[var(--color-logo)] text-3xl tracking-widest font-mono font-bold px-8 py-4 rounded-lg border border-gray-600 mb-6">
+                {waitingRoomId}
+              </div>
+              <button 
+                onClick={leaveRoom}
+                className="text-gray-400 hover:text-red-400 transition underline"
+              >
+                Cancel and leave lobby
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mb-4 text-blue-400 text-2xl">
+                <FontAwesomeIcon icon={faPlus} />
+              </div>
+              <h2 className="text-2xl font-bold mb-2">Create a Room</h2>
+              <p className="text-gray-400 mb-6">Host a battle and invite your friends to compete in real-time.</p>
+              
+              <div className="w-full max-w-sm flex flex-col gap-4 text-left">
+                <div>
+                  <label className="block text-sm font-bold text-gray-300 mb-1">Select Topic</label>
+                  <select 
+                    value={selectedTopic}
+                    onChange={(e) => setSelectedTopic(e.target.value)}
+                    disabled={loading}
+                    className="w-full bg-[#2a2a2a] text-white px-4 py-3 rounded-lg border border-gray-600 focus:outline-none focus:border-[var(--color-logo)] disabled:opacity-50"
+                  >
+                    {topics.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-bold text-gray-300 mb-1">Level of Question</label>
+                  <select 
+                    value={questionLevel}
+                    onChange={(e) => setQuestionLevel(e.target.value)}
+                    disabled={loading}
+                    className="w-full bg-[#2a2a2a] text-white px-4 py-3 rounded-lg border border-gray-600 focus:outline-none focus:border-[var(--color-logo)] disabled:opacity-50"
+                  >
+                    <option value="Easy">Easy</option>
+                    <option value="Medium">Medium</option>
+                    <option value="Hard">Hard</option>
+                  </select>
+                </div>
+
+                <button 
+                  onClick={handleCreateRoom}
+                  disabled={loading}
+                  className="mt-2 bg-[var(--color-logo)] text-black font-bold py-3 px-8 rounded-lg hover:bg-orange-400 transition shadow-[0_0_15px_rgba(239,153,55,0.4)] w-full disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
+                >
+                  {loading && <span className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin"></span>}
+                  Start Room
+                </button>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Join Room Card */}
@@ -104,36 +305,47 @@ function Battle() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-[#2a2a2a] text-gray-400 text-sm uppercase tracking-wider">
+                <th className="p-4 font-semibold">#</th>
                 <th className="p-4 font-semibold">Opponent</th>
                 <th className="p-4 font-semibold">Date</th>
-                <th className="p-4 font-semibold">Duration</th>
                 <th className="p-4 font-semibold">Result</th>
-                <th className="p-4 font-semibold text-right">Score Change</th>
               </tr>
             </thead>
             <tbody>
-              {battleHistory.map((battle) => (
-                <tr key={battle.id} className="border-b border-white/5 hover:bg-white/5 transition">
-                  <td className="p-4 font-mono text-gray-200">@{battle.opponent}</td>
-                  <td className="p-4 text-gray-400">{battle.date}</td>
-                  <td className="p-4 text-gray-400">{battle.duration}</td>
-                  <td className="p-4">
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                      battle.result === 'Win' ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 
-                      battle.result === 'Loss' ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 
-                      'bg-gray-500/20 text-gray-400 border border-gray-500/30'
-                    }`}>
-                      {battle.result}
-                    </span>
-                  </td>
-                  <td className={`p-4 text-right font-bold ${
-                    battle.score.startsWith('+') && battle.score !== '+0' ? 'text-green-400' : 
-                    battle.score.startsWith('-') ? 'text-red-400' : 'text-gray-400'
-                  }`}>
-                    {battle.score}
-                  </td>
+              {historyLoading ? (
+                <tr>
+                  <td colSpan={4} className="p-8 text-center text-gray-400 animate-pulse">Loading history...</td>
                 </tr>
-              ))}
+              ) : historyError ? (
+                <tr>
+                  <td colSpan={4} className="p-8 text-center text-red-400">{historyError}</td>
+                </tr>
+              ) : battleHistory.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="p-8 text-center text-gray-500">No battles found. Start your first battle!</td>
+                </tr>
+              ) : (
+                battleHistory.map((battle, index) => (
+                  <tr key={index} className="border-b border-white/5 hover:bg-white/5 transition">
+                    <td className="p-4 text-gray-500 font-mono">{index + 1}</td>
+                    <td className="p-4 font-mono text-gray-200">@{battle.playerB}</td>
+                    <td className="p-4 text-gray-400">
+                      {battle.startTime
+                        ? new Date(battle.startTime).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+                        : '—'}
+                    </td>
+                    <td className="p-4">
+                      <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                        battle.win
+                          ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                          : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                      }`}>
+                        {battle.win ? '🏆 Win' : '💀 Lose'}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

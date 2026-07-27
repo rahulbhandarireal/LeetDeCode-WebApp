@@ -77,24 +77,26 @@ export default function RatingChart() {
 
   if (loading) {
     return (
-      <div className="bg-[var(--component-surface)] rounded-md relative m-2 w-4/7 p-4 shadow-md flex items-center justify-center min-h-[200px]">
+      <div className="bg-transparent rounded-md relative m-2 w-4/7 p-4 shadow-md flex items-center justify-center min-h-[200px]">
         <div className="text-gray-500 animate-pulse">Loading Chart...</div>
       </div>
     );
-  } const data = {
+  }
+  const data = {
     labels: problemsolved,
     datasets: [
         {
           label: "Rating",
           data: rating,
           borderColor: "#F57F31",
-        // remove background fill for a clean line chart
-        fill: false,
-        tension: 0.2,
-        pointRadius: 4,
-        pointBackgroundColor: "#F57F31",
-        pointBorderColor: "#F57F31",
-        borderWidth: 2,        },
+          backgroundColor: "transparent",
+          // remove background fill for a clean line chart
+          fill: false,
+          tension: 0.2,
+          pointRadius: 4,
+          pointBackgroundColor: "#F57F31",
+          pointBorderColor: "#F57F31",
+          borderWidth: 2,        },
     ],
   };
 
@@ -142,10 +144,10 @@ export default function RatingChart() {
   const changeColor = ratingChange >= 0 ? "text-green-600" : "text-red-600";
 
   return (
-    <div className="bg-[var(--component-surface)] rounded-md relative m-2 w-4/7 p-4 rounded-lg shadow-md">
+    <div className="bg-transparent rounded-md relative m-2 w-4/7 p-4 rounded-lg shadow-md">
       <Line data={data} options={options} />
       {rating && rating.length > 0 && (
-        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 flex flex-col items-center">
+        <div className="absolute top-4 left-1/3 transform -translate-x-1/2 flex flex-col items-center">
           <span className="text-7xl font-extrabold leading-none text-[var(--color-logo)]">
             {currentRating}
           </span>

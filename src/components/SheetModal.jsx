@@ -47,7 +47,9 @@ export default function SheetModal({ sheet, onClose }) {
     if (difficulty === "MEDIUM") return "text-[var(--color-medium)] border-[var(--color-medium)]/20 bg-[var(--color-medium)]/10";
     if (difficulty === "HARD") return "text-[var(--color-hard)] border-[var(--color-hard)]/20 bg-[var(--color-hard)]/10";
     return "text-gray-400 border-gray-400/20 bg-gray-400/10";
-  };
+  }
+const solvedCount = Object.values(solvedState).filter(Boolean).length;
+const progressPercent = questions.length ? Math.round((solvedCount / questions.length) * 100) : 0;
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 md:p-8">
@@ -66,6 +68,9 @@ export default function SheetModal({ sheet, onClose }) {
             <FontAwesomeIcon icon={faTimes} size="lg" />
           </button>
         </div>
+          <div className="flex items-center gap-2 p-4 border-b border-[#2a2a2a]">
+            <span className="text-sm text-white">Solved: {solvedCount}/{questions.length} ({progressPercent}%)</span>
+          </div>
 
         {/* Content */}
         <div className="p-6 overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
@@ -77,6 +82,7 @@ export default function SheetModal({ sheet, onClose }) {
             <div className="text-center text-neutral-400 py-10">No questions found for this sheet.</div>
           ) : (
             <div className="flex flex-col gap-3">
+
               {questions.map((q) => (
                 <div key={q.problemId} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-[#1a1a1a] rounded-xl border border-gray-800/50 hover:border-[var(--color-logo)]/50 transition-colors gap-4">
                   

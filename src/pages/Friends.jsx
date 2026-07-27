@@ -183,9 +183,7 @@ function Friends() {
                     <span className="text-xl font-bold block group-hover:text-[var(--color-logo)] transition-colors">{friend.name}</span>
                     <span className="text-gray-400 text-sm">@{friend.username}</span>
                   </div>
-                  <div className="bg-gray-800 px-3 py-1 rounded-full text-xs font-mono text-gray-400">
-                    ID: {friend.id}
-                  </div>
+                  
                 </div>
                 <Stats userStat={friend.userStat} className="!w-full !m-0 !bg-transparent border-none shadow-none" />
               </div>
