@@ -69,6 +69,9 @@ export const ENDPOINTS = {
   roomStatus: (roomCode) =>
     `${BATTLE_API}/battle/roomstatus/${roomCode}`,
 
+  joinRoom : () =>
+    `${BATTLE_API}/battle/join`,
+
   /** GET problem details by problem ID (AI-generated) */
   getProblem: (problemId) =>
     `${BATTLE_API}/getproblem/ai/?problemId=${problemId}`,
