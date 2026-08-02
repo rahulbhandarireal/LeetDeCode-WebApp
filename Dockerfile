@@ -1,5 +1,7 @@
 # Stage 1: Build the Vite application
-FROM node:22-alpine AS build
+<<<<<<< HEAD
+FROM node:20-alpine AS builder
+>>>>>>> a8f94938d976514c7ab86fbe8b8dcf40754e16fc
 
 # Set the working directory
 WORKDIR /app

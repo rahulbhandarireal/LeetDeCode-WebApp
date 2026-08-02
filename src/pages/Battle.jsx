@@ -146,6 +146,9 @@ function Battle() {
 
   const handleJoinRoom = async (e) => {
     e.preventDefault();
+    const username = localStorage.getItem(STORAGE_KEYS.USERNAME) || "Guest";
+    const playerId = localStorage.getItem("userId") || username;
+
     if (roomId.trim() === '') {
       alert("Please enter a valid Room ID.");
       return;
@@ -158,8 +161,18 @@ function Battle() {
     const currentUser = localStorage.getItem(STORAGE_KEYS.USERNAME) || "Guest";
 
     try {
-      const statusRes = await fetch(ENDPOINTS.roomStatus(joinedRoom));
-      if (statusRes.ok) {
+      const statusRes = await fetch(ENDPOINTS.joinRoom(), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          roomCode: joinedRoom,
+          playerId: playerId,
+          playerName: username
+        })
+      });
+      if (statusRes.status) {
         const sData = await statusRes.json();
         const rObj = sData.data || sData;
         pId = rObj.problemId || rObj.problem?.id || '';
@@ -174,6 +187,8 @@ function Battle() {
         if (!opponentUsername && rObj.hostUsername) {
           opponentUsername = rObj.hostUsername;
         }
+      }else{
+        alert(statusRes.message);
       }
     } catch (err) {
       console.error("Error fetching room status on join:", err);
