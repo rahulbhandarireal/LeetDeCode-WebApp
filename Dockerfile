@@ -1,5 +1,5 @@
 # Stage 1: Build the Vite application
-FROM node:18-alpine AS builder
+FROM node:22-alpine AS build
 
 # Set the working directory
 WORKDIR /app
@@ -31,7 +31,7 @@ FROM nginx:alpine
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 # Copy the built assets from the builder stage
-COPY --from=builder /app/dist /usr/share/nginx/html
+COPY --from=build /app/dist /usr/share/nginx/html
 
 # Expose port 80
 EXPOSE 80
