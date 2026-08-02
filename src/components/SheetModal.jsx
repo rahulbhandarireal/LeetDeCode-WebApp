@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTimes, faExternalLinkAlt } from '@fortawesome/free-solid-svg-icons';
+import { ENDPOINTS } from '../config/api';
+import { STORAGE_KEYS } from '../constants/storage';
 
 export default function SheetModal({ sheet, onClose }) {
-  const username = localStorage.getItem("name") || "Guest";
+  const username = localStorage.getItem(STORAGE_KEYS.USERNAME) || "Guest";
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
   
+  
   // Track solved problems locally
-  const cacheKey = `solved_problems_${username}_${sheet.sheetId}`;
+  const cacheKey = STORAGE_KEYS.SHEET_SOLVED(username, sheet.sheetId);
   const [solvedState, setSolvedState] = useState(() => {
     try {
       const stored = localStorage.getItem(cacheKey);
@@ -21,7 +24,7 @@ export default function SheetModal({ sheet, onClose }) {
   useEffect(() => {
     const fetchQuestions = async () => {
       try {
-        const res = await fetch(`http://localhost:8081/sheets/${sheet.sheetId}`);
+        const res = await fetch(ENDPOINTS.sheetById(sheet.sheetId));
         const result = await res.json();
         if (result && result.success) {
           setQuestions(result.data || []);

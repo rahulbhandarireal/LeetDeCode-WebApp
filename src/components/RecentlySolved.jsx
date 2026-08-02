@@ -1,16 +1,18 @@
 import React, { useState, useEffect } from 'react'
+import { ENDPOINTS } from '../config/api';
+import { STORAGE_KEYS, CACHE_DURATION } from '../constants/storage';
 
 function RecentlySolved() {
-  const username = localStorage.getItem("name") || "Guest";
-  const CACHE_KEY = `recentSolved_${username}`;
-  const CACHE_DURATION = 60 * 60 * 1000; // 1 hour
+  const username = localStorage.getItem(STORAGE_KEYS.USERNAME) || "Guest";
+  const CACHE_KEY = STORAGE_KEYS.RECENT(username);
+  const CACHE_TIME = CACHE_DURATION.RECENT; // 1 hour
 
   const [recentactivity, setRecentActivity] = useState(() => {
     const cached = localStorage.getItem(CACHE_KEY);
     if (cached) {
       try {
         const { data, timestamp } = JSON.parse(cached);
-        if (Date.now() - timestamp < CACHE_DURATION) return data;
+        if (Date.now() - timestamp < CACHE_TIME) return data;
       } catch (e) { return []; }
     }
     return [];
@@ -36,7 +38,7 @@ function RecentlySolved() {
         if (cached) {
           try {
             const { data, timestamp } = JSON.parse(cached);
-            if (Date.now() - timestamp < CACHE_DURATION) {
+            if (Date.now() - timestamp < CACHE_TIME) {
               setRecentActivity(data);
               setLoading(false);
               return;
@@ -44,7 +46,7 @@ function RecentlySolved() {
           } catch (e) { }
         }
 
-        const res = await fetch(`http://localhost:8081/api/leetcode/recentsolvedproblem/${username}`);
+        const res = await fetch(ENDPOINTS.recentSolved(username));
         if (res && typeof res.json === 'function') {
           const result = await res.json();
           if (result && result.success && Array.isArray(result.data)) {
@@ -71,7 +73,7 @@ function RecentlySolved() {
     };
 
     fetchRecentProblems();
-  }, [username, CACHE_KEY, CACHE_DURATION]);
+  }, [username, CACHE_KEY, CACHE_TIME]);
 
   return (
     <div className='text-white w-4/6 rounded-md bg-[var(--component-surface)] p-4 min-h-[300px]'>

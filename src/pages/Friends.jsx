@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { ENDPOINTS } from '../config/api';
 import Stats from '../components/Stats';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUserPlus, faSearch, faCheckCircle, faExclamationCircle } from '@fortawesome/free-solid-svg-icons';
+import { faUserPlus, faSearch, faCheckCircle, faExclamationCircle, faTrash } from '@fortawesome/free-solid-svg-icons';
+import { STORAGE_KEYS } from '../constants/storage';
 
 function Friends() {
   const [friends, setFriends] = useState([]);
@@ -9,10 +11,11 @@ function Friends() {
   const [searchUsername, setSearchUsername] = useState("");
   const [addStatus, setAddStatus] = useState({ type: null, message: "" });
   const [isAdding, setIsAdding] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  const currentUser = localStorage.getItem("name") || "Guest";
+  const currentUser = localStorage.getItem(STORAGE_KEYS.USERNAME) || "Guest";
   const today = new Date().toISOString().split('T')[0];
-  const FRIENDS_CACHE_KEY = `friendsList_${currentUser}_${today}`;
+  const FRIENDS_CACHE_KEY = STORAGE_KEYS.FRIENDS(currentUser, today);
 
   const fetchFriends = async (forceRefresh = false) => {
     if (currentUser === "Guest") {
@@ -36,7 +39,7 @@ function Friends() {
 
     try {
       setLoading(true);
-      const response = await fetch(`http://localhost:8081/relation/findallknown/${currentUser}`);
+      const response = await fetch(ENDPOINTS.allFriends(currentUser));
       if (response && typeof response.json === 'function') {
         const result = await response.json();
         if (result && result.success && Array.isArray(result.data)) {
@@ -89,17 +92,37 @@ function Friends() {
       setAddStatus({ type: null, message: "" });
       
       // Try without /api prefix first as per debug findings, and use POST
-      const response = await fetch(`http://localhost:8081/relation/makerelation/${currentUser}/${searchUsername.trim()}`, {
+      const response = await fetch(ENDPOINTS.makeRelation(currentUser, searchUsername.trim()), {
         method: 'POST'
       });
       
       const result = await response.json();
 
       if (result.success || response.ok) {
-        setAddStatus({ type: 'success', message: `Friend request sent to ${searchUsername}!` });
+        setAddStatus({ type: 'success', message: `Friend added successfully!` });
         setSearchUsername("");
-        // Refresh friends list without full page reload, bypassing cache
-        fetchFriends(true); 
+        
+        if (result.data) {
+          const user = result.data;
+          const newFriend = {
+            id: user.id || Date.now(),
+            name: user.name || user.username || searchUsername.trim(),
+            username: user.username || searchUsername.trim(),
+            userStat: {
+              easy: user.easySolved || 0,
+              medium: user.mediumSolved || 0,
+              hard: user.hardSolved || 0,
+              total: user.totalSolved || 0
+            }
+          };
+          
+          const updatedFriends = [...friends, newFriend];
+          setFriends(updatedFriends);
+          localStorage.setItem(FRIENDS_CACHE_KEY, JSON.stringify(updatedFriends));
+        } else {
+          // Fallback if no data is returned
+          fetchFriends(true); 
+        }
       } else {
         setAddStatus({ type: 'error', message: result.message || "Failed to add friend." });
       }
@@ -107,6 +130,43 @@ function Friends() {
       setAddStatus({ type: 'error', message: "Connection error. Make sure backend is running." });
     } finally {
       setIsAdding(false);
+      setTimeout(() => setAddStatus({ type: null, message: "" }), 3000);
+    }
+  };
+
+  const handleDeleteFriend = async (e, friendUsername) => {
+    e.stopPropagation();
+    if (currentUser === "Guest") return;
+    
+    // Check if the user really wants to delete
+    if (!window.confirm(`Are you sure you want to remove ${friendUsername}?`)) return;
+
+    try {
+      setIsDeleting(true);
+      setAddStatus({ type: null, message: "" });
+      
+      const response = await fetch(ENDPOINTS.deleteRelation(currentUser, friendUsername), {
+        method: 'DELETE'
+      });
+      
+      // Some APIs return empty responses for DELETE, so handle that
+      let result = {};
+      try { result = await response.json(); } catch(e) {}
+
+      if (response.ok || result.success) {
+        setAddStatus({ type: 'success', message: `Removed ${friendUsername} from friends.` });
+        
+        // Remove from local state and update cache instead of refetching
+        const updatedFriends = friends.filter(f => f.username !== friendUsername);
+        setFriends(updatedFriends);
+        localStorage.setItem(FRIENDS_CACHE_KEY, JSON.stringify(updatedFriends));
+      } else {
+        setAddStatus({ type: 'error', message: result.message || "Failed to remove friend." });
+      }
+    } catch (err) {
+      setAddStatus({ type: 'error', message: "Connection error. Make sure backend is running." });
+    } finally {
+      setIsDeleting(false);
       setTimeout(() => setAddStatus({ type: null, message: "" }), 3000);
     }
   };
@@ -184,6 +244,14 @@ function Friends() {
                     <span className="text-gray-400 text-sm">@{friend.username}</span>
                   </div>
                   
+                  <button 
+                    onClick={(e) => handleDeleteFriend(e, friend.username)}
+                    disabled={isDeleting}
+                    className="w-10 h-10 flex items-center justify-center rounded-full bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-colors border border-red-500/20 shadow-md"
+                    title="Remove Friend"
+                  >
+                    <FontAwesomeIcon icon={faTrash} />
+                  </button>
                 </div>
                 <Stats userStat={friend.userStat} className="!w-full !m-0 !bg-transparent border-none shadow-none" />
               </div>

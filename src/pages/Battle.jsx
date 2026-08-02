@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
+import { ENDPOINTS } from '../config/api';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faRightToBracket, faTrophy, faXmark } from '@fortawesome/free-solid-svg-icons';
+import { STORAGE_KEYS } from '../constants/storage';
+import { ROUTES } from '../constants/routes';
 
 function Battle() {
   const [roomId, setRoomId] = useState('');
@@ -23,7 +26,7 @@ function Battle() {
 
   const navigate = useNavigate();
 
-  const currentUsername = localStorage.getItem("name") || "Guest";
+  const currentUsername = localStorage.getItem(STORAGE_KEYS.USERNAME) || "Guest";
   const [battleHistory, setBattleHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [historyError, setHistoryError] = useState(null);
@@ -31,7 +34,7 @@ function Battle() {
   useEffect(() => {
     if (currentUsername && currentUsername !== "Guest") {
       setHistoryLoading(true);
-      fetch(`http://localhost:8082/battle/history?hostUsername=${encodeURIComponent(currentUsername)}`)
+      fetch(ENDPOINTS.battleHistory(currentUsername))
         .then(res => res.json())
         .then(data => {
           if (data?.status && Array.isArray(data?.data)) {
@@ -51,12 +54,12 @@ function Battle() {
   }, [currentUsername]);
 
   const handleCreateRoom = async () => {
-    const username = localStorage.getItem("name") || "Guest";
+    const username = localStorage.getItem(STORAGE_KEYS.USERNAME) || "Guest";
     const playerId = localStorage.getItem("userId") || username;
 
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:8082/battle/create', {
+      const response = await fetch(ENDPOINTS.battleCreate(), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -104,7 +107,7 @@ function Battle() {
     if (isWaiting && waitingRoomId) {
       interval = setInterval(async () => {
         try {
-          const response = await fetch(`http://localhost:8082/battle/roomstatus/${waitingRoomId}`);
+          const response = await fetch(ENDPOINTS.roomStatus(waitingRoomId));
           if (response.ok) {
             const resData = await response.json();
             const roomData = resData.data; // Support both {data: {...}} and {...} structures
@@ -116,7 +119,7 @@ function Battle() {
 
             // Check if player two joined
             if (isJoined) {
-              const currentUser = localStorage.getItem("name") || "Guest";
+              const currentUser = localStorage.getItem(STORAGE_KEYS.USERNAME) || "Guest";
               let opponentUsername = "Opponent";
               if (players.length > 1) {
                 const opponent = players.find(p => p.username !== currentUser);
@@ -127,7 +130,7 @@ function Battle() {
               setIsWaiting(false);
               clearInterval(interval);
               alert(`Player joined! Starting battle match...`);
-              navigate(`/ide?roomId=${waitingRoomId}&problemId=${resolvedProblemId}&opponent=${opponentUsername}`);
+              navigate(`${ROUTES.IDE}?roomId=${waitingRoomId}&problemId=${resolvedProblemId}&opponent=${opponentUsername}`);
             }
           }
         } catch (err) {
@@ -152,10 +155,10 @@ function Battle() {
     
     let pId = '';
     let opponentUsername = '';
-    const currentUser = localStorage.getItem("name") || "Guest";
+    const currentUser = localStorage.getItem(STORAGE_KEYS.USERNAME) || "Guest";
 
     try {
-      const statusRes = await fetch(`http://localhost:8082/battle/roomstatus/${joinedRoom}`);
+      const statusRes = await fetch(ENDPOINTS.roomStatus(joinedRoom));
       if (statusRes.ok) {
         const sData = await statusRes.json();
         const rObj = sData.data || sData;
@@ -178,7 +181,7 @@ function Battle() {
 
     alert(`Successfully joined Room: ${joinedRoom}`);
     setRoomId('');
-    navigate(`/ide?roomId=${joinedRoom}&problemId=${pId}${opponentUsername ? `&opponent=${opponentUsername}` : ''}`);
+    navigate(`${ROUTES.IDE}?roomId=${joinedRoom}&problemId=${pId}${opponentUsername ? `&opponent=${opponentUsername}` : ''}`);
   };
 
   const leaveRoom = () => {

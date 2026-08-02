@@ -1,37 +1,59 @@
 import React, { useState, useEffect } from 'react'
+import { ENDPOINTS } from '../config/api';
 import { useLeetCodeData } from '../hooks/useLeetCodeData'
 import POTD from '../components/POTD'
 import RatingChart from '../components/RatingChart'
 import Stats from '../components/Stats'
 import RecentlySolved from '../components/RecentlySolved'
+import { STORAGE_KEYS, CACHE_DURATION } from '../constants/storage';
+import { getRank } from '../constants/ranks';
 
 function Home() {
-  const username = localStorage.getItem("name") || "Guest";
+  const username = localStorage.getItem(STORAGE_KEYS.USERNAME) || "Guest";
   const { userData, potdData, loading, error, clearCache } = useLeetCodeData(username);
-  const [userPoints, setUserPoints] = useState(null);
+  
+  const [userPoints, setUserPoints] = useState(() => {
+    if (username === "Guest") return null;
+    const cached = localStorage.getItem(STORAGE_KEYS.USER_POINTS(username));
+    if (cached) {
+      try {
+        const { data, timestamp } = JSON.parse(cached);
+        if (Date.now() - timestamp < CACHE_DURATION.USER_POINTS) return data;
+      } catch (e) {}
+    }
+    return null;
+  });
 
   useEffect(() => {
     if (username && username !== "Guest") {
-      fetch(`http://localhost:8082/user/getuserpoints?playerId=${encodeURIComponent(username)}`)
+      // Re-check cache before fetching
+      const cached = localStorage.getItem(STORAGE_KEYS.USER_POINTS(username));
+      if (cached) {
+        try {
+          const { data, timestamp } = JSON.parse(cached);
+          if (Date.now() - timestamp < CACHE_DURATION.USER_POINTS) {
+            // Just set initial data, do NOT return, let it fetch in background
+            setUserPoints(data);
+          }
+        } catch (e) {}
+      }
+
+      fetch(ENDPOINTS.userPoints(username))
         .then(res => res.json())
         .then(data => {
-          console.log(data);
           const pts = data?.data?.decodePoints ?? 0;
           setUserPoints(pts);
+          localStorage.setItem(
+            STORAGE_KEYS.USER_POINTS(username), 
+            JSON.stringify({ data: pts, timestamp: Date.now() })
+          );
         })
         .catch(err => {
           console.error("Failed to fetch user points:", err);
-          setUserPoints(0);
+          if (userPoints === null) setUserPoints(0);
         });
     }
   }, [username]);
-
-  const getRank = (rating) => {
-    if (!rating) return "Newbie";
-    if (rating >= 2200) return "Guardian";
-    if (rating >= 1800) return "Knight";
-    return "Newbie";
-  };
 
   if (loading) {
     return (

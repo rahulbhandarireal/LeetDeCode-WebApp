@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # Provide the public IPs or domain names of your backend EC2 instance here.
+        # Example: VITE_USER_SERVICE_URL=http://<BACKEND_EC2_IP>:8081
+        - VITE_USER_SERVICE_URL=${VITE_USER_SERVICE_URL:-http://localhost:8081}
+        - VITE_BATTLE_SERVICE_URL=${VITE_BATTLE_SERVICE_URL:-http://localhost:8082}
+    ports:
+      - "80:80"
+    restart: unless-stopped
+    container_name: leetdecode-frontend

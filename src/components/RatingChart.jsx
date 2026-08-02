@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { ENDPOINTS } from '../config/api';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -53,7 +54,7 @@ export default function RatingChart() {
         let ratingData = ratingHistory;
 
         if (!ratingData || !ratingData.length) {
-          const ratingRes = await fetch(`http://localhost:8081/api/leetcode/rating/${username}`);
+          const ratingRes = await fetch(ENDPOINTS.ratingHistory(username));
           if (ratingRes) {
             const ratingResult = await ratingRes.json();
             if (ratingResult && ratingResult.success) {

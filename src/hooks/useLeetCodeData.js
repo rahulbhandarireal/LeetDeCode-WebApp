@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
+import { ENDPOINTS } from '../config/api';
+import { STORAGE_KEYS, CACHE_DURATION } from '../constants/storage';
 
 export function useLeetCodeData(username) {
-  const CACHE_TIME = 5 * 60 * 1000; // 5 minutes for user stats
+  const CACHE_TIME = CACHE_DURATION.USER_STATS; // 5 minutes for user stats
   const today = new Date().toISOString().split('T')[0];
 
   const [userData, setUserData] = useState(() => {
-    const statsCacheKey = `userStats_${username}`;
+    const statsCacheKey = STORAGE_KEYS.USER_STATS(username);
     const cachedStats = localStorage.getItem(statsCacheKey);
     if (cachedStats) {
       try {
@@ -19,14 +21,19 @@ export function useLeetCodeData(username) {
   });
 
   const [potdData, setPotdData] = useState(() => {
-    const potdDataCacheKey = `potdData_${today}`;
+    const potdDataCacheKey = STORAGE_KEYS.POTD_DATA(today);
+    const potdSolvedCacheKey = STORAGE_KEYS.POTD_SOLVED(username, today);
     const cachedPotdData = localStorage.getItem(potdDataCacheKey);
+    const cachedSolved = localStorage.getItem(potdSolvedCacheKey);
+
+    let issolved = false;
+    if (cachedSolved === "true") issolved = true;
 
     if (cachedPotdData) {
       try {
         const parsed = JSON.parse(cachedPotdData);
         return {
-          issolved: false, // always start as false; API will update this
+          issolved,
           questioncontent: parsed.questioncontent || "Problem of the Day",
           tags: parsed.tags || [],
           solvedby: parsed.solvedby || "N/A",
@@ -59,24 +66,27 @@ export function useLeetCodeData(username) {
       }
 
       // ── 1. User Stats ──────────────────────────────────────────
-      const statsCacheKey = `userStats_${username}`;
-      let statsData = userData;
+      const statsCacheKey = STORAGE_KEYS.USER_STATS(username);
 
-      if (!statsData) {
-        const statsRes = await fetch(`http://localhost:8081/api/leetcode/stats/${username}`);
-        const statsResult = await statsRes.json();
-        if (statsResult && statsResult.success) {
-          statsData = statsResult.data;
-          localStorage.setItem(statsCacheKey, JSON.stringify({ data: statsData, timestamp: Date.now() }));
-        } else {
-          throw new Error(statsResult?.message || "Failed to fetch user data");
+      // We always fetch to keep the cache updated (stale-while-revalidate)
+      const fetchStats = async () => {
+        try {
+          const statsRes = await fetch(ENDPOINTS.userStats(username));
+          const statsResult = await statsRes.json();
+          if (statsResult && statsResult.success) {
+            setUserData(statsResult.data);
+            localStorage.setItem(statsCacheKey, JSON.stringify({ data: statsResult.data, timestamp: Date.now() }));
+          } else if (!userData) {
+            throw new Error(statsResult?.message || "Failed to fetch user data");
+          }
+        } catch (err) {
+          if (!userData) throw err; // Only throw if we have no fallback data
         }
-      }
-      setUserData(statsData);
+      };
 
       // ── 2. POTD details + solved status (always fresh) ─────────
-      const potdDataCacheKey = `potdData_${today}`;
-      const potdCacheKey = `potdSolved_${username}_${today}`;
+      const potdDataCacheKey = STORAGE_KEYS.POTD_DATA(today);
+      const potdCacheKey = STORAGE_KEYS.POTD_SOLVED(username, today);
       const cachedPotdData = localStorage.getItem(potdDataCacheKey);
 
       let potdSolved = false;
@@ -101,8 +111,8 @@ export function useLeetCodeData(username) {
       // Always call both endpoints so solved status is never stale
       try {
         const [potdRes, issolvedRes] = await Promise.all([
-          fetch(`http://localhost:8081/api/leetcode/questionoftheday`),
-          fetch(`http://localhost:8081/api/leetcode/ispotdsolved/${username}`)
+          fetch(ENDPOINTS.potd()),
+          fetch(ENDPOINTS.potdSolved(username))
         ]);
 
         const potdResult = await potdRes.json();
@@ -128,6 +138,9 @@ export function useLeetCodeData(username) {
         console.error("Failed to fetch POTD data:", fetchErr);
       }
 
+      // Run both stats and POTD fetch concurrently if needed, but we await POTD above
+      await fetchStats();
+
       setPotdData({
         issolved: potdSolved,
         questioncontent: potdquestion || "Problem of the Day",
@@ -146,14 +159,23 @@ export function useLeetCodeData(username) {
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 5 * 60 * 1000); // re-check every 5 min
-    return () => clearInterval(interval);
+    // Fetch every 10 minutes as requested
+    const interval = setInterval(fetchData, 10 * 60 * 1000); 
+    
+    // Also fetch immediately when user switches back to the tab
+    const handleFocus = () => fetchData();
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [fetchData]);
 
   const clearCache = () => {
-    localStorage.removeItem(`userStats_${username}`);
-    localStorage.removeItem(`potdSolved_${username}_${today}`);
-    localStorage.removeItem(`potdData_${today}`);
+    localStorage.removeItem(STORAGE_KEYS.USER_STATS(username));
+    localStorage.removeItem(STORAGE_KEYS.POTD_SOLVED(username, today));
+    localStorage.removeItem(STORAGE_KEYS.POTD_DATA(today));
     window.location.reload();
   };
 

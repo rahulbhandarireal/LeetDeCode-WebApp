@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { Panel, Group, Separator } from "react-resizable-panels";
+import { ENDPOINTS } from "../config/api";
 
 const BOILERPLATES = {
   CPP: `// write your code here\n#include <iostream>\nusing namespace std;\n\nint main() {\n    return 0;\n}`,
@@ -45,7 +46,7 @@ function IDE() {
       // If problemId is missing, try fetching it from room status using roomId
       if ((targetProblemId === null || targetProblemId === undefined || targetProblemId === '') && roomId) {
         try {
-          const roomRes = await fetch(`http://localhost:8082/battle/roomstatus/${roomId}`);
+          const roomRes = await fetch(ENDPOINTS.roomStatus(roomId));
           if (roomRes.ok) {
             const roomDataJson = await roomRes.json();
             const room = roomDataJson.data;
@@ -63,7 +64,7 @@ function IDE() {
 
       setLoadingQuestion(true);
       try {
-        const response = await fetch(`http://localhost:8082/getproblem/ai/?problemId=${targetProblemId}`);
+        const response = await fetch(ENDPOINTS.getProblem(targetProblemId));
         if (!response.ok) {
           throw new Error(`Failed to fetch problem (${response.status})`);
         }
@@ -118,7 +119,7 @@ function IDE() {
     };
 
     try {
-      const response = await fetch("http://localhost:8082/execute/run/forcefullsubmit", {
+      const response = await fetch(ENDPOINTS.forceSubmit(), {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -172,7 +173,7 @@ function IDE() {
     setIsRunning(true);
 
     try {
-      const response = await fetch("http://localhost:8082/execute/run/sample", {
+      const response = await fetch(ENDPOINTS.runSample(), {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -222,7 +223,7 @@ function IDE() {
     setIsRunning(true);
 
     try {
-      const response = await fetch("http://localhost:8082/execute/run/submit", {
+      const response = await fetch(ENDPOINTS.runSubmit(), {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
