@@ -144,60 +144,68 @@ function Battle() {
     };
   }, [isWaiting, waitingRoomId, problemId, navigate]);
 
-  const handleJoinRoom = async (e) => {
-    e.preventDefault();
-    const username = localStorage.getItem(STORAGE_KEYS.USERNAME) || "Guest";
-    const playerId = localStorage.getItem("userId") || username;
+const handleJoinRoom = async (e) => {
+  e.preventDefault();
+  const username = localStorage.getItem(STORAGE_KEYS.USERNAME) || "Guest";
+  const playerId = localStorage.getItem("userId") || username;
 
-    if (roomId.trim() === '') {
-      alert("Please enter a valid Room ID.");
-      return;
-    }
-    const joinedRoom = roomId.toUpperCase().trim();
-    setActiveRoom(joinedRoom);
-    
-    let pId = '';
-    let opponentUsername = '';
-    const currentUser = localStorage.getItem(STORAGE_KEYS.USERNAME) || "Guest";
+  if (roomId.trim() === '') {
+    alert("Please enter a valid Room ID.");
+    return;
+  }
+  const joinedRoom = roomId.toUpperCase().trim();
 
-    try {
-      const statusRes = await fetch(ENDPOINTS.joinRoom(), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          roomCode: joinedRoom,
-          playerId: playerId,
-          playerName: username
-        })
-      });
-      if (statusRes.status) {
-        const sData = await statusRes.json();
-        const rObj = sData.data || sData;
-        pId = rObj.problemId || rObj.problem?.id || '';
+  let pId = '';
+  let opponentUsername = '';
+  const currentUser = username;
 
-        const players = rObj.players || rObj.playersList || [];
-        if (players.length > 0) {
-          const opponent = players.find(p => (p.username && p.username !== currentUser) || (p.name && p.name !== currentUser));
-          if (opponent) {
-            opponentUsername = opponent.username || opponent.name || '';
-          }
+  try {
+    setLoading(true);
+    const response = await fetch(ENDPOINTS.joinRoom(), {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        roomCode: joinedRoom,
+        playerId: playerId,
+        username: username
+      })
+    });
+
+    const resData = await response.json();
+
+    if (resData.status && resData.data) {
+      const rObj = resData.data;
+      pId = rObj.problemId || rObj.problem?.id || '';
+
+      const players = rObj.players || rObj.playersList || [];
+      if (players.length > 0) {
+        const opponent = players.find(
+          p => (p.username && p.username !== currentUser) || (p.name && p.name !== currentUser)
+        );
+        if (opponent) {
+          opponentUsername = opponent.username || opponent.name || '';
         }
-        if (!opponentUsername && rObj.hostUsername) {
-          opponentUsername = rObj.hostUsername;
-        }
-      }else{
-        alert(statusRes.message);
       }
-    } catch (err) {
-      console.error("Error fetching room status on join:", err);
-    }
+      if (!opponentUsername && rObj.hostUsername) {
+        opponentUsername = rObj.hostUsername;
+      }
 
-    alert(`Successfully joined Room: ${joinedRoom}`);
-    setRoomId('');
-    navigate(`${ROUTES.IDE}?roomId=${joinedRoom}&problemId=${pId}${opponentUsername ? `&opponent=${opponentUsername}` : ''}`);
-  };
+      setActiveRoom(joinedRoom);
+      alert(`Successfully joined Room: ${joinedRoom}`);
+      setRoomId('');
+      navigate(`${ROUTES.IDE}?roomId=${joinedRoom}&problemId=${pId}${opponentUsername ? `&opponent=${opponentUsername}` : ''}`);
+    } else {
+      alert("Failed to join room: " + (resData.message || "Unknown error"));
+    }
+  } catch (err) {
+    console.error("Error joining room:", err);
+    alert("Error joining room. Please check the Room ID and try again.");
+  } finally {
+    setLoading(false);
+  }
+};
 
   const leaveRoom = () => {
     setActiveRoom(null);
